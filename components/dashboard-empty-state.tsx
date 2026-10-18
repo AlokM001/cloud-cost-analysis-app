@@ -50,6 +50,7 @@ export function DashboardEmptyState({ onUploadComplete }: EmptyStateProps) {
 
           setMessage('Data uploaded successfully. Loading dashboard...');
           await onUploadComplete();
+          setLoading(false);
         } catch (error) {
           console.error(error);
           setMessage('Upload failed. Please try again.');

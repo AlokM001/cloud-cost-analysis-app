@@ -5,7 +5,14 @@ import { UserModel } from '@/models/User';
 // Call this once after deploying: GET /api/auth/seed
 export async function GET() {
   try {
-    await connectToDatabase();
+    const { connected } = await connectToDatabase();
+
+    if (!connected) {
+      return Response.json(
+        { error: 'MongoDB is not connected. Cannot seed users without a database.' },
+        { status: 503 }
+      );
+    }
 
     const seedUsers = [
       {

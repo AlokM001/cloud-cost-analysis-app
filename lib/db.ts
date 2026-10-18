@@ -12,11 +12,12 @@ declare global {
     | {
         conn: typeof mongoose | null;
         promise: Promise<typeof mongoose> | null;
+        failed: boolean;
       }
     | undefined;
 }
 
-const cache = global.mongooseCache ?? { conn: null, promise: null };
+const cache = global.mongooseCache ?? { conn: null, promise: null, failed: false };
 global.mongooseCache = cache;
 
 export async function connectToDatabase(): Promise<DatabaseConnectionState> {
@@ -25,36 +26,33 @@ export async function connectToDatabase(): Promise<DatabaseConnectionState> {
     return { connected: false, connection: null };
   }
 
+  // If we already have a successful connection, return it
   if (cache.conn) {
     return { connected: true, connection: cache.conn };
+  }
+
+  // If a previous connection attempt already failed, don't retry
+  // (avoids 500ms+ delay on every single API call)
+  if (cache.failed) {
+    return { connected: false, connection: null };
   }
 
   if (!cache.promise) {
     cache.promise = mongoose.connect(MONGODB_URI, {
       bufferCommands: false,
+      serverSelectionTimeoutMS: 3000,
+      connectTimeoutMS: 3000,
     });
   }
 
-  // Optimize database connection fallback
-  if (!cache.conn) {
-    console.warn('Using in-memory data. Ensure MongoDB is running for production.');
-  }
-
-  // Add a timeout for MongoDB connection attempts
-  const connectionTimeout = setTimeout(() => {
-    console.error('MongoDB connection timeout. Falling back to in-memory data.');
-    cache.promise = null;
-  }, 5000);
-
   try {
     cache.conn = await cache.promise;
-    clearTimeout(connectionTimeout);
     console.log('MongoDB connected successfully');
     return { connected: true, connection: cache.conn };
   } catch (error) {
-    clearTimeout(connectionTimeout);
     cache.promise = null;
     cache.conn = null;
+    cache.failed = true; // Remember the failure so we don't retry
     console.error('MongoDB connection failed. Using in-memory billing data.', error);
     return { connected: false, connection: null };
   }

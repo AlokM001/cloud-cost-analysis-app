@@ -11,7 +11,4 @@ const UserSchema = new Schema(
   }
 );
 
-// Ensure email index for fast lookups
-UserSchema.index({ email: 1 });
-
 export const UserModel = models.User || model('User', UserSchema);
